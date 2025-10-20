@@ -23,8 +23,10 @@ logging.basicConfig(
 # 从Gist读取已发送的post_id
 def load_sent_posts():
     try:
+        # 新增：打印令牌前5字符，确认是否正确获取
+        logging.info(f"当前使用的GitHub令牌前5字符：{GITHUB_TOKEN[:5] if GITHUB_TOKEN else '空'}")
         logging.info(f"开始读取Gist（ID：{GIST_ID}）")
-        headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+        headers = {"Authorization": f"token {GITHUB_TOKEN}"}  # 确保格式是"token 令牌"
         response = requests.get(
             f"https://api.github.com/gists/{GIST_ID}",
             headers=headers,
@@ -52,8 +54,10 @@ def load_sent_posts():
 # 保存已发送的post_id到Gist
 def save_sent_posts(post_ids):
     try:
+        # 新增：打印令牌前5字符，确认是否正确获取
+        logging.info(f"当前使用的GitHub令牌前5字符：{GITHUB_TOKEN[:5] if GITHUB_TOKEN else '空'}")
         logging.info(f"准备保存ID到Gist：{post_ids}")
-        headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+        headers = {"Authorization": f"token {GITHUB_TOKEN}"}  # 确保格式是"token 令牌"
         data = {
             "files": {
                 "sent_posts.json": {  # 严格匹配Gist中的文件名（区分大小写）
