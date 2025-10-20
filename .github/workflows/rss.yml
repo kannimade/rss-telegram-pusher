@@ -8,34 +8,38 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
+      # 步骤1：拉取仓库代码（带令牌认证，确保后续能推送）
       - name: 拉取仓库代码
         uses: actions/checkout@v4
         with:
-          persist-credentials: false  # 禁用默认凭据
+          token: ${{ secrets.MY_GITHUB_TOKEN }}  # 用令牌拉取，确保后续推送有权限
           fetch-depth: 0  # 获取完整历史，避免分支冲突
-          token: ${{ secrets.MY_GITHUB_TOKEN }}  # 用令牌拉取代码
 
+      # 步骤2：设置Python环境
       - name: 设置Python环境
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
+      # 步骤3：安装依赖
       - name: 安装依赖
         run: pip install python-telegram-bot feedparser
 
-      - name: 运行脚本（检测并推送新内容）
+      # 步骤4：运行脚本（推送新内容）
+      - name: 运行脚本
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
           RSS_URL: ${{ secrets.RSS_URL }}
         run: python rss_pusher.py
 
+      # 步骤5：提交并推送更新（用v4版本，支持repo_token，稳定无警告）
       - name: 提交更新后的ID文件
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v4  # 关键：降级到v4版本
         with:
           commit_message: "更新已发送的帖子ID"
-          file_pattern: "sent_posts.json"
+          file_pattern: "sent_posts.json"  # 只提交ID文件，避免其他文件干扰
+          repo_token: ${{ secrets.MY_GITHUB_TOKEN }}  # v4版本支持的令牌参数
+          branch: main  # 确保与你的仓库主分支一致（你的是main）
           commit_user_name: "GitHub Actions"
           commit_user_email: "actions@github.com"
-          token: ${{ secrets.MY_GITHUB_TOKEN }}  # 用令牌推送提交
-          branch: main  # 确保与你的仓库主分支名称一致（通常是main）
