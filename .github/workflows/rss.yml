@@ -2,28 +2,38 @@ name: RSS to Telegram
 on:
   schedule:
     - cron: "*/2 * * * *"  # 每2分钟运行一次
-  workflow_dispatch:  # 允许手动触发测试
+  workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: 拉取仓库代码
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false  # 禁用默认凭据，使用PAT
+
       - name: 设置Python环境
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-      - name: 安装依赖库
-        run: pip install python-telegram-bot feedparser requests
-      - name: 调试环境变量（测试用，之后可删除）
-        run: echo "MY_GITHUB_TOKEN前5字符: ${MY_GITHUB_TOKEN:0:5}"
-        env:
-          MY_GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
-      - name: 运行脚本
+
+      - name: 安装依赖
+        run: pip install python-telegram-bot feedparser
+
+      - name: 运行脚本（检测并推送新内容）
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
           RSS_URL: ${{ secrets.RSS_URL }}
-          GIST_ID: ${{ secrets.GIST_ID }}
-          MY_GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
         run: python rss_pusher.py
+
+      - name: 提交更新后的ID文件
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "更新已发送的帖子ID"
+          file_pattern: "sent_posts.json"  # 只提交这个文件
+          # 使用你的GitHub令牌（与之前的MY_GITHUB_TOKEN相同，需有仓库写入权限）
+          commit_user_name: "GitHub Actions"
+          commit_user_email: "actions@github.com"
+          repo_token: ${{ secrets.MY_GITHUB_TOKEN }}
