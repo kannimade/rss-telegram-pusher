@@ -28,12 +28,12 @@ jobs:
           RSS_URL: ${{ secrets.RSS_URL }}
         run: python rss_pusher.py
 
-      - name: 提交更新后的ID文件
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "更新已发送的帖子ID"
-          file_pattern: "sent_posts.json"  # 只提交这个文件
-          # 使用你的GitHub令牌（与之前的MY_GITHUB_TOKEN相同，需有仓库写入权限）
-          commit_user_name: "GitHub Actions"
-          commit_user_email: "actions@github.com"
-          repo_token: ${{ secrets.MY_GITHUB_TOKEN }}
+- name: 提交更新后的ID文件
+  uses: stefanzweifel/git-auto-commit-action@v5
+  with:
+    commit_message: "更新已发送的帖子ID"
+    file_pattern: "sent_posts.json"  # 只提交这个文件
+    commit_user_name: "GitHub Actions"
+    commit_user_email: "actions@github.com"
+    token: ${{ secrets.MY_GITHUB_TOKEN }}  # 关键：用token替代repo_token
+    branch: main  # 确保与你的仓库主分支名称一致（通常是main或master）
