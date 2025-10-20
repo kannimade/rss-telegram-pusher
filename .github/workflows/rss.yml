@@ -1,31 +1,37 @@
 name: RSS to Telegram
 on:
   schedule:
-    - cron: "*/2 * * * *"  # 每2分钟运行一次
+    # ① 9:30-22:00 每5分钟执行一次
+    - cron: "*/5 9-21 * * *"                # 9:00-21:59 每5分钟（覆盖9:30后）
+    - cron: "0-29/5 22 * * *"              # 22:00-22:29 每5分钟（22:30后进入下一段）
+    
+    # ② 22:00-0:00 每小时执行一次（22点、23点）
+    - cron: "0 22-23 * * *"
+    
+    # ③ 7:00-9:30 每小时执行一次（7点、8点、9点）
+    - cron: "0 7-9 * * *"
+    
+    # ④ 0:00-7:00 不执行（无cron配置）
   workflow_dispatch:  # 允许手动触发
 
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      # 拉取仓库代码（带令牌认证，后续步骤自动继承权限）
       - name: 拉取仓库代码
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.MY_GITHUB_TOKEN }}  # 用令牌拉取，确保推送权限
-          fetch-depth: 0  # 获取完整历史，避免分支冲突
+          token: ${{ secrets.MY_GITHUB_TOKEN }}
+          fetch-depth: 0
 
-      # 设置Python环境
       - name: 设置Python环境
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      # 安装依赖库
       - name: 安装依赖
         run: pip install python-telegram-bot feedparser
 
-      # 运行脚本（检测新内容并推送）
       - name: 运行脚本
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
@@ -33,12 +39,11 @@ jobs:
           RSS_URL: ${{ secrets.RSS_URL }}
         run: python rss_pusher.py
 
-      # 提交更新后的ID文件（无repo_token，消除警告）
       - name: 提交更新后的ID文件
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "更新已发送的帖子ID"
-          file_pattern: "sent_posts.json"  # 仅提交ID文件
-          branch: main  # 仓库主分支（确保与你的分支名称一致）
+          file_pattern: "sent_posts.json"
+          branch: main
           commit_user_name: "GitHub Actions"
           commit_user_email: "actions@github.com"
