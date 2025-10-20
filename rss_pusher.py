@@ -12,7 +12,7 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 RSS_URL = os.getenv("RSS_URL")
 GIST_ID = os.getenv("GIST_ID")  # 存储已发送帖子ID的Gist ID
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")  # 操作Gist的GitHub令牌
+GITHUB_TOKEN = os.getenv("MY_GITHUB_TOKEN")  # 操作Gist的GitHub令牌
 
 # 从GitHub Gist读取已发送的帖子ID
 def load_sent_posts():
