@@ -1,0 +1,25 @@
+name: RSS to Telegram
+on:
+  schedule:
+    - cron: "*/2 * * * *"  # 每2分钟运行一次
+  workflow_dispatch:  # 允许手动触发测试
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4  # 拉取仓库代码
+      - name: 设置Python环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"  # 指定Python版本
+      - name: 安装依赖库
+        run: pip install python-telegram-bot feedparser requests
+      - name: 运行脚本
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          RSS_URL: ${{ secrets.RSS_URL }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+          GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
+        run: python rss_pusher.py
