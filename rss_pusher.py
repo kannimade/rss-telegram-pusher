@@ -6,21 +6,17 @@ import os
 from telegram import Bot
 from telegram.error import TelegramError
 
-# 从环境变量读取配置
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 RSS_URL = os.getenv("RSS_URL")
-
-# 存储已发送ID的本地文件
 POSTS_FILE = "sent_posts.json"
+MAX_PUSH_PER_RUN = 5  # 单次最多推送5条
 
-# 配置日志
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# 读取已发送的post_id
 def load_sent_posts():
     try:
         if os.path.exists(POSTS_FILE):
@@ -33,16 +29,14 @@ def load_sent_posts():
         logging.error(f"读取已发送ID失败：{str(e)}")
         return []
 
-# 保存已发送的post_id
 def save_sent_posts(post_ids):
     try:
         with open(POSTS_FILE, "w", encoding="utf-8") as f:
             json.dump(post_ids, f, ensure_ascii=False, indent=2)
-        logging.info(f"已保存ID列表（共{len(post_ids)}条）：{post_ids}")
+        logging.info(f"已保存ID列表（共{len(post_ids)}条）")
     except Exception as e:
         logging.error(f"保存已发送ID失败：{str(e)}")
 
-# 获取RSS更新
 def fetch_updates():
     try:
         logging.info(f"获取RSS源：{RSS_URL}")
@@ -56,18 +50,15 @@ def fetch_updates():
         logging.error(f"获取RSS失败：{str(e)}")
         return None
 
-# 转义Markdown特殊字符
 def escape_markdown(text):
     special_chars = r"_*~`>#+-.!()"
     for char in special_chars:
         text = text.replace(char, f"\{char}")
     return text
 
-# 发送单条消息到Telegram（带间隔）
 async def send_message(bot, title, link, delay=3):
     try:
-        # 发送前等待指定秒数（避免频率限制）
-        await asyncio.sleep(delay)
+        await asyncio.sleep(delay)  # 发送间隔
         escaped_title = escape_markdown(title)
         escaped_link = escape_markdown(link)
         message = f"`{escaped_title}`\n{escaped_link}"
@@ -83,7 +74,6 @@ async def send_message(bot, title, link, delay=3):
         logging.error(f"Telegram发送失败：{str(e)}")
         return False
 
-# 检查更新并推送所有新帖子
 async def check_for_updates(sent_post_ids):
     updates = fetch_updates()
     if not updates:
@@ -92,7 +82,7 @@ async def check_for_updates(sent_post_ids):
     new_posts = []
     for entry in updates.entries:
         try:
-            # 提取帖子ID（适配URL格式）
+            # 提取ID（适配URL格式）
             guid_parts = entry.guid.split("-")
             if len(guid_parts) < 2:
                 logging.warning(f"无效GUID格式：{entry.guid}，跳过")
@@ -109,25 +99,22 @@ async def check_for_updates(sent_post_ids):
             continue
 
     if new_posts:
-        # 按ID升序排序（从旧到新推送），若想从新到旧则用reverse=True
-        new_posts.sort(key=lambda x: int(x[0]))  # 从小到大：旧→新
-        # new_posts.sort(key=lambda x: int(x[0]), reverse=True)  # 从大到小：新→旧
+        # 按ID升序排序（旧→新），取前5条
+        new_posts.sort(key=lambda x: int(x[0]))
+        new_posts = new_posts[:MAX_PUSH_PER_RUN]  # 限制单次最多5条
+        logging.info(f"发现{len(new_posts)}条新帖子（单次最多推{MAX_PUSH_PER_RUN}条），准备依次推送（间隔3秒）")
 
-        logging.info(f"发现{len(new_posts)}条新帖子，准备依次推送（间隔3秒）")
         async with Bot(token=TELEGRAM_TOKEN) as bot:
-            # 逐条推送，每条间隔3秒
             for i, (post_id, title, link) in enumerate(new_posts):
-                # 第一条消息延迟0秒，后续每条延迟3秒
+                # 第一条立即发送，后续每条间隔3秒
                 success = await send_message(bot, title, link, delay=3 if i > 0 else 0)
                 if success:
-                    sent_post_ids.append(post_id)  # 仅成功推送的ID才记录
+                    sent_post_ids.append(post_id)  # 仅记录成功发送的ID
 
-        # 保存所有成功推送的ID
         save_sent_posts(sent_post_ids)
     else:
         logging.info("无新帖子需要推送")
 
-# 主函数
 async def main():
     logging.info("===== 脚本开始运行 =====")
     sent_post_ids = load_sent_posts()
