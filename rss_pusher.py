@@ -10,7 +10,7 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 RSS_URL = os.getenv("RSS_URL")
 POSTS_FILE = "sent_posts.json"
-MAX_PUSH_PER_RUN = 1  # 单次最多推送1条
+MAX_PUSH_PER_RUN = 5  # 单次最多推送1条
 
 logging.basicConfig(
     level=logging.INFO,
