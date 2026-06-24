@@ -15,6 +15,7 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 RSS_URL = os.getenv("RSS_URL")
 RSS_URLS = os.getenv("RSS_URLS")
+EXTRA_RSS_URLS = os.getenv("EXTRA_RSS_URLS")
 POSTS_FILE = "sent_posts.json"
 STATE_FILE = "rss_state.json"
 SEND_IMAGES = os.getenv("SEND_IMAGES", "0").lower() in ("1", "true", "yes", "on")
@@ -46,51 +47,63 @@ HREF_REGEX = re.compile(r"""href=["']([^"']+)""")
 IMG_SRC_REGEX = re.compile(r"""<img[^>]+src=["']([^"']+)["']""", re.IGNORECASE)
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
 
-def parse_feed_configs():
-    """Return feed configs from RSS_URLS, falling back to RSS_URL.
+def _parse_feed_config_value(value, default_name_prefix="feed"):
+    configs = []
+    raw = (value or "").strip()
+    if not raw:
+        return configs
 
-    RSS_URLS accepts either:
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            for index, item in enumerate(parsed, start=1):
+                if isinstance(item, str):
+                    configs.append({"name": f"{default_name_prefix}{index}", "url": item.strip()})
+                elif isinstance(item, dict):
+                    url = (item.get("url") or "").strip()
+                    name = (item.get("name") or f"{default_name_prefix}{index}").strip()
+                    if url:
+                        config = {"name": name, "url": url}
+                        if item.get("interval_minutes"):
+                            config["interval_minutes"] = item.get("interval_minutes")
+                        if item.get("prefix"):
+                            config["prefix"] = item.get("prefix")
+                        configs.append(config)
+        elif isinstance(parsed, dict):
+            for name, url in parsed.items():
+                if url:
+                    configs.append({"name": str(name).strip(), "url": str(url).strip()})
+        return configs
+    except json.JSONDecodeError:
+        pass
+
+    separators = "\n" if "\n" in raw else ","
+    for index, item in enumerate(raw.split(separators), start=1):
+        item = item.strip()
+        if not item:
+            continue
+        if "=" in item:
+            name, url = item.split("=", 1)
+            configs.append({"name": name.strip(), "url": url.strip()})
+        else:
+            configs.append({"name": f"{default_name_prefix}{index}", "url": item})
+    return configs
+
+def parse_feed_configs():
+    """Return feed configs from RSS_URLS, RSS_URL, and EXTRA_RSS_URLS.
+
+    RSS_URLS and EXTRA_RSS_URLS accept either:
     - JSON array: [{"name": "bangumi", "url": "https://..."}, ...]
     - newline/comma separated values: "bangumi=https://...\nx=https://..."
     """
     configs = []
 
     if RSS_URLS:
-        raw = RSS_URLS.strip()
-        try:
-            parsed = json.loads(raw)
-            if isinstance(parsed, list):
-                for index, item in enumerate(parsed, start=1):
-                    if isinstance(item, str):
-                        configs.append({"name": f"feed{index}", "url": item.strip()})
-                    elif isinstance(item, dict):
-                        url = (item.get("url") or "").strip()
-                        name = (item.get("name") or f"feed{index}").strip()
-                        if url:
-                            config = {"name": name, "url": url}
-                            if item.get("interval_minutes"):
-                                config["interval_minutes"] = item.get("interval_minutes")
-                            if item.get("prefix"):
-                                config["prefix"] = item.get("prefix")
-                            configs.append(config)
-            elif isinstance(parsed, dict):
-                for name, url in parsed.items():
-                    if url:
-                        configs.append({"name": str(name).strip(), "url": str(url).strip()})
-        except json.JSONDecodeError:
-            separators = "\n" if "\n" in raw else ","
-            for index, item in enumerate(raw.split(separators), start=1):
-                item = item.strip()
-                if not item:
-                    continue
-                if "=" in item:
-                    name, url = item.split("=", 1)
-                    configs.append({"name": name.strip(), "url": url.strip()})
-                else:
-                    configs.append({"name": f"feed{index}", "url": item})
-
-    if not configs and RSS_URL:
+        configs.extend(_parse_feed_config_value(RSS_URLS))
+    elif RSS_URL:
         configs.append({"name": "default", "url": RSS_URL.strip()})
+
+    configs.extend(_parse_feed_config_value(EXTRA_RSS_URLS, default_name_prefix="extra"))
 
     return [config for config in configs if config.get("url")]
 

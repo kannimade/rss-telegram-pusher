@@ -39,6 +39,7 @@ jobs:
           CHAT_ID: ${{ secrets.CHAT_ID }}
           RSS_URL: ${{ secrets.RSS_URL }}
           RSS_URLS: ${{ secrets.RSS_URLS }}
+          EXTRA_RSS_URLS: ${{ secrets.EXTRA_RSS_URLS }}
           SEND_IMAGES: ${{ vars.SEND_IMAGES }}
           MAX_IMAGES_PER_POST: ${{ vars.MAX_IMAGES_PER_POST }}
           MAX_PUSH_PER_RUN: ${{ vars.MAX_PUSH_PER_RUN }}

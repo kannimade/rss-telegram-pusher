@@ -21,6 +21,7 @@
 | `MY_GITHUB_TOKEN` | 是 | 用于把 `sent_posts.json` 提交回仓库的 GitHub token |
 | `RSS_URL` | 否 | 单个 RSS 源，旧配置可继续使用 |
 | `RSS_URLS` | 否 | 多 RSS 源配置；设置后优先于 `RSS_URL` |
+| `EXTRA_RSS_URLS` | 否 | 在保留旧 `RSS_URL` 的同时追加 RSS 源 |
 
 `RSS_URLS` 支持 JSON：
 
@@ -48,6 +49,19 @@ x=https://rsshub.asashiki.com/twitter/user/asashiki_/excludeReplies=1&readable=1
 ```
 
 如果需要为不同 RSS 源设置不同检查间隔或提示字，请使用 JSON 格式。`interval_minutes` 表示该 RSS 源至少间隔多少分钟才会被请求一次；GitHub Actions 本身仍可保持较高频率运行。
+
+如果现有 Bangumi 地址已经配置在 `RSS_URL`，只需要新增 `EXTRA_RSS_URLS`：
+
+```json
+[
+  {
+    "name": "x",
+    "url": "https://rsshub.asashiki.com/twitter/user/asashiki_/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY",
+    "interval_minutes": 30,
+    "prefix": "主人发推了："
+  }
+]
+```
 
 ## GitHub Variables
 
