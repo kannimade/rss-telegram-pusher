@@ -1,52 +1,95 @@
-# RSS 到 Telegram 推送工具配置指南
+# RSS 到 Telegram 推送工具
 
-本仓库通过 GitHub Actions 实现 RSS 源内容自动推送到 Telegram 群组，以下是详细配置步骤。
+这个仓库通过 GitHub Actions 定时读取一个或多个 RSS 源，并把新条目推送到 Telegram 频道或群组。
 
+## 功能
 
-## 一、准备工作
+- 支持单 RSS 源 `RSS_URL`，兼容旧配置
+- 支持多 RSS 源 `RSS_URLS`
+- 使用 `sent_posts.json` 去重，避免重复推送
+- 可选提取 RSS 条目中的图片并发送到 Telegram
+- 可配合自建 RSSHub 推送 X/Twitter、Bangumi 等来源
 
-1. **创建 Telegram Bot**  
-   联系 Telegram 官方机器人 @BotFather，发送指令 `/newbot`，按提示设置机器人名称和用户名（用户名需以 `bot` 或 `Bot` 结尾）。完成后会获得 Bot Token（格式：`123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`），请妥善保存备用。
+## GitHub Secrets
 
-2. **获取群组 ID**  
-   将创建的 Bot 加入目标 Telegram 群组，在群组内发送任意消息，然后将该消息转发给 @getidsbot。@getidsbot 会返回群组 ID（格式：`-1001234567890`），保存备用。
+在仓库 `Settings -> Secrets and variables -> Actions -> Secrets` 中配置：
 
-3. **创建 GitHub 个人访问令牌**  
-   访问 [个人访问令牌创建地址][2]，选择“生成经典令牌”：  
-   - 自定义令牌名称（如 `rss-to-telegram`）；  
-   - 有效期建议设置为 90 天；  
-   - **必须勾选 `repo` 权限**（用于写入仓库）；  
-   创建完成后，令牌（token）只会显示一次，请立即复制并保存。
+| 名称 | 必填 | 说明 |
+| --- | --- | --- |
+| `TELEGRAM_TOKEN` | 是 | Telegram Bot Token |
+| `CHAT_ID` | 是 | Telegram 频道或群组 ID |
+| `MY_GITHUB_TOKEN` | 是 | 用于把 `sent_posts.json` 提交回仓库的 GitHub token |
+| `RSS_URL` | 否 | 单个 RSS 源，旧配置可继续使用 |
+| `RSS_URLS` | 否 | 多 RSS 源配置；设置后优先于 `RSS_URL` |
 
+`RSS_URLS` 支持 JSON：
 
-## 二、设置仓库密钥
+```json
+[
+  {
+    "name": "bangumi",
+    "url": "https://example.com/bangumi.xml"
+  },
+  {
+    "name": "x",
+    "url": "https://rss.example.com/twitter/user/asashiki/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY"
+  }
+]
+```
 
-步骤：仓库主页 → Settings → Secrets and variables → Actions → 点击右上角「New repository secret」，依次添加以下 4 个密钥：
+也支持换行文本：
 
-| 密钥名称         | 说明                          |
-|------------------|-------------------------------|
-| `TELEGRAM_TOKEN` | 第一步获取的 Telegram Bot Token |
-| `CHAT_ID`        | 第二步获取的群组 ID           |
-| `RSS_URL`        | 需推送的 RSS 源地址           |
-| `MY_GITHUB_TOKEN`| 第三步创建的 GitHub 令牌      |
+```text
+bangumi=https://example.com/bangumi.xml
+x=https://rss.example.com/twitter/user/asashiki/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY
+```
 
-添加完成后示例：  
-[![密钥设置示例](https://img.cdn.vin/dai/20251020/1760968222781.png)](https://img.cdn.vin/dai/20251020/1760968222781.png)
+## GitHub Variables
 
+在 `Settings -> Secrets and variables -> Actions -> Variables` 中可以按需配置：
 
-## 三、测试与验证
+| 名称 | 默认值 | 说明 |
+| --- | --- | --- |
+| `SEND_IMAGES` | `0` | 设为 `1` 时发送 RSS 条目中的图片 |
+| `MAX_IMAGES_PER_POST` | `4` | 每条最多发送几张图 |
+| `MAX_PUSH_PER_RUN` | `15` | 单次 workflow 最多推送几条 |
 
-1. 进入仓库主页 → 点击顶部「Actions」；  
-2. 左侧导航栏选择工作流「RSS to Telegram」；  
-3. 点击「Run workflow」按钮，在弹出窗口中再次点击「Run workflow」手动触发运行；  
-4. 运行后查看目标 Telegram 群组是否收到消息：  
-   - 若收到消息，说明配置成功；  
-   - 若未收到，可在 Actions 页面进入对应工作流的运行记录，查看报错信息排查问题。
+## 自建 RSSHub 推送 X/Twitter
 
+RSSHub 的 Twitter 路由需要自建实例并配置 X 登录账号。建议使用非重要小号。
 
-## 注意事项
-- 本脚本默认适配 [大佬论坛（www.dalao.net）][3] 的帖子 URL 结构（/thread-[tid].htm），相同结构的网站可以直接使用，其他网站可能需要调整代码中的 URL 解析逻辑才能正常运行。
+1. 在 VPS 上准备目录：
 
+```bash
+mkdir -p ~/rsshub
+cd ~/rsshub
+```
 
-[2]: https://github.com/settings/tokens
-[3]: https://www.dalao.net/
+2. 复制本仓库的 `deploy/rsshub.compose.yml` 和 `deploy/rsshub.env.example` 到 VPS，并把示例环境文件改名：
+
+```bash
+cp rsshub.env.example .env
+```
+
+3. 编辑 `.env`：
+
+```env
+ACCESS_KEY=一串长随机字符串
+TWITTER_USERNAME=你的X小号登录名
+TWITTER_PASSWORD=你的X小号密码
+# TWITTER_AUTHENTICATION_SECRET=如果开了2FA则填TOTP secret
+```
+
+4. 启动 RSSHub：
+
+```bash
+docker compose -f rsshub.compose.yml up -d
+```
+
+5. 本机测试：
+
+```bash
+curl "http://127.0.0.1:1200/twitter/user/你的用户名/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=ACCESS_KEY"
+```
+
+如果 GitHub Actions 要访问这个 RSSHub，需要用 Caddy 或 Nginx 反代到 HTTPS 域名，再把完整 RSS 地址填入 `RSS_URLS`。
