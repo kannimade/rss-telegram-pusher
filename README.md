@@ -34,7 +34,7 @@
   },
   {
     "name": "x",
-    "url": "https://rsshub.asashiki.com/twitter/user/asashiki_/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY",
+    "url": "https://rsshub.asashiki.com/twitter/user/asashiki_/includeReplies=0&includeRts=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY",
     "interval_minutes": 30,
     "prefix": "主人发推了："
   }
@@ -45,7 +45,7 @@
 
 ```text
 bangumi=https://example.com/bangumi.xml
-x=https://rsshub.asashiki.com/twitter/user/asashiki_/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY
+x=https://rsshub.asashiki.com/twitter/user/asashiki_/includeReplies=0&includeRts=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY
 ```
 
 如果需要为不同 RSS 源设置不同检查间隔或提示字，请使用 JSON 格式。`interval_minutes` 表示该 RSS 源至少间隔多少分钟才会被请求一次；GitHub Actions 本身仍可保持较高频率运行。
@@ -56,7 +56,7 @@ x=https://rsshub.asashiki.com/twitter/user/asashiki_/excludeReplies=1&readable=1
 [
   {
     "name": "x",
-    "url": "https://rsshub.asashiki.com/twitter/user/asashiki_/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY",
+    "url": "https://rsshub.asashiki.com/twitter/user/asashiki_/includeReplies=0&includeRts=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY",
     "interval_minutes": 30,
     "prefix": "主人发推了："
   }
@@ -111,7 +111,7 @@ docker compose -f rsshub.compose.yml up -d
 5. 本机测试：
 
 ```bash
-curl "http://127.0.0.1:1200/twitter/user/asashiki_/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=ACCESS_KEY"
+curl "http://127.0.0.1:1200/twitter/user/asashiki_/includeReplies=0&includeRts=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=ACCESS_KEY"
 ```
 
 如果 GitHub Actions 要访问这个 RSSHub，需要用 Caddy 或 Nginx 反代到 HTTPS 域名，再把完整 RSS 地址填入 `RSS_URLS`。
