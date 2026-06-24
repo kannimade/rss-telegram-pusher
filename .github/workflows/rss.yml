@@ -42,13 +42,14 @@ jobs:
           SEND_IMAGES: ${{ vars.SEND_IMAGES }}
           MAX_IMAGES_PER_POST: ${{ vars.MAX_IMAGES_PER_POST }}
           MAX_PUSH_PER_RUN: ${{ vars.MAX_PUSH_PER_RUN }}
+          MESSAGE_PREFIX: ${{ vars.MESSAGE_PREFIX }}
         run: python rss_pusher.py
 
       - name: 提交更新后的ID文件
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "更新已发送的帖子ID"
-          file_pattern: "sent_posts.json"
+          file_pattern: "sent_posts.json rss_state.json"
           branch: main
           commit_user_name: "GitHub Actions"
           commit_user_email: "actions@github.com"

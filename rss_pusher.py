@@ -16,6 +16,7 @@ CHAT_ID = os.getenv("CHAT_ID")
 RSS_URL = os.getenv("RSS_URL")
 RSS_URLS = os.getenv("RSS_URLS")
 POSTS_FILE = "sent_posts.json"
+STATE_FILE = "rss_state.json"
 SEND_IMAGES = os.getenv("SEND_IMAGES", "0").lower() in ("1", "true", "yes", "on")
 MESSAGE_PREFIX = os.getenv("MESSAGE_PREFIX", "主人")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -66,7 +67,12 @@ def parse_feed_configs():
                         url = (item.get("url") or "").strip()
                         name = (item.get("name") or f"feed{index}").strip()
                         if url:
-                            configs.append({"name": name, "url": url})
+                            config = {"name": name, "url": url}
+                            if item.get("interval_minutes"):
+                                config["interval_minutes"] = item.get("interval_minutes")
+                            if item.get("prefix"):
+                                config["prefix"] = item.get("prefix")
+                            configs.append(config)
             elif isinstance(parsed, dict):
                 for name, url in parsed.items():
                     if url:
@@ -87,6 +93,49 @@ def parse_feed_configs():
         configs.append({"name": "default", "url": RSS_URL.strip()})
 
     return [config for config in configs if config.get("url")]
+
+def load_feed_state():
+    try:
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                return json.loads(content) if content else {}
+    except Exception as e:
+        logging.error(f"读取RSS状态失败：{str(e)}")
+    return {}
+
+def save_feed_state(state):
+    try:
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=2, sort_keys=True)
+        logging.info("已保存RSS状态")
+    except Exception as e:
+        logging.error(f"保存RSS状态失败：{str(e)}")
+
+def should_check_feed(feed_config, state, now=None):
+    interval_minutes = feed_config.get("interval_minutes")
+    if not interval_minutes:
+        return True
+
+    try:
+        interval_seconds = int(interval_minutes) * 60
+    except (TypeError, ValueError):
+        logging.warning(f"RSS源[{feed_config['name']}] interval_minutes 无效，仍然检查")
+        return True
+
+    if interval_seconds <= 0:
+        return True
+
+    now = now or time.time()
+    last_checked_at = state.get(feed_config["name"], {}).get("last_checked_at")
+    if not last_checked_at:
+        return True
+
+    due = now - float(last_checked_at) >= interval_seconds
+    if not due:
+        remaining = int(interval_seconds - (now - float(last_checked_at)))
+        logging.info(f"RSS源[{feed_config['name']}] 未到检查间隔，跳过，剩余约 {remaining} 秒")
+    return due
 
 def load_sent_posts():
     try:
@@ -300,19 +349,20 @@ def extract_entry_link(entry):
         return getattr(entry, "link", None)
     return best
 
-def build_telegram_html(text, link=None, limit=TELEGRAM_MESSAGE_LIMIT):
+def build_telegram_html(text, link=None, limit=TELEGRAM_MESSAGE_LIMIT, prefix=None):
     raw_text = str(text or "").strip()
     if not raw_text:
         raw_text = str(link or "").strip()
+    prefix = MESSAGE_PREFIX if prefix is None else prefix
 
     suffix = ""
     while True:
         escaped_text = html.escape(raw_text + suffix)
         if link:
             escaped_link = html.escape(link, quote=True)
-            message = f'{MESSAGE_PREFIX}<a href="{escaped_link}">{escaped_text}</a>'
+            message = f'{prefix}<a href="{escaped_link}">{escaped_text}</a>'
         else:
-            message = f"{MESSAGE_PREFIX}{escaped_text}"
+            message = f"{prefix}{escaped_text}"
 
         if len(message) <= limit:
             return message
@@ -325,10 +375,10 @@ def build_telegram_html(text, link=None, limit=TELEGRAM_MESSAGE_LIMIT):
         trim_by = max(1, overflow)
         raw_text = raw_text[:-trim_by]
 
-async def send_message(bot, text, link=None, delay=3):
+async def send_message(bot, text, link=None, delay=3, prefix=None):
     try:
         await asyncio.sleep(delay)  # 发送间隔
-        message = build_telegram_html(text, link=link)
+        message = build_telegram_html(text, link=link, prefix=prefix)
         logging.info(f"发送消息：{message[:100]}")
         await bot.send_message(
             chat_id=CHAT_ID,
@@ -345,11 +395,12 @@ async def send_post(bot, post, delay=3):
     text = post["text"]
     link = post.get("link")
     images = post.get("images") or []
+    prefix = post.get("prefix")
 
     if not SEND_IMAGES or not images:
-        return await send_message(bot, text, link=link, delay=delay)
+        return await send_message(bot, text, link=link, delay=delay, prefix=prefix)
 
-    caption = build_telegram_html(text, link=link, limit=TELEGRAM_CAPTION_LIMIT)
+    caption = build_telegram_html(text, link=link, limit=TELEGRAM_CAPTION_LIMIT, prefix=prefix)
 
     try:
         await asyncio.sleep(delay)
@@ -368,7 +419,7 @@ async def send_post(bot, post, delay=3):
         return True
     except TelegramError as e:
         logging.error(f"Telegram图片发送失败，回退为文本：{str(e)}")
-        return await send_message(bot, text, link=link, delay=0)
+        return await send_message(bot, text, link=link, delay=0, prefix=prefix)
 
 async def check_for_updates(sent_post_ids):
     feed_configs = parse_feed_configs()
@@ -376,9 +427,17 @@ async def check_for_updates(sent_post_ids):
         logging.error("未配置 RSS_URL 或 RSS_URLS")
         return
 
+    state = load_feed_state()
+    state_changed = False
     new_posts = []
     for feed_config in feed_configs:
+        now = time.time()
+        if not should_check_feed(feed_config, state, now=now):
+            continue
+
         updates = fetch_updates(feed_config)
+        state.setdefault(feed_config["name"], {})["last_checked_at"] = int(now)
+        state_changed = True
         if not updates:
             continue
 
@@ -408,6 +467,7 @@ async def check_for_updates(sent_post_ids):
                     "timestamp": timestamp,
                     "images": images,
                     "feed": feed_config["name"],
+                    "prefix": feed_config.get("prefix"),
                 })
             except Exception as e:
                 logging.error(f"解析条目失败[{feed_config['name']}]：{str(e)}")
@@ -429,6 +489,9 @@ async def check_for_updates(sent_post_ids):
         save_sent_posts(sent_post_ids)
     else:
         logging.info("无新帖子需要推送")
+
+    if state_changed:
+        save_feed_state(state)
 
 async def main():
     logging.info("===== 脚本开始运行 =====")

@@ -28,11 +28,14 @@
 [
   {
     "name": "bangumi",
-    "url": "https://example.com/bangumi.xml"
+    "url": "https://example.com/bangumi.xml",
+    "prefix": "主人"
   },
   {
     "name": "x",
-    "url": "https://rss.example.com/twitter/user/asashiki/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY"
+    "url": "https://rsshub.asashiki.com/twitter/user/asashiki_/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY",
+    "interval_minutes": 30,
+    "prefix": "主人发推了："
   }
 ]
 ```
@@ -41,8 +44,10 @@
 
 ```text
 bangumi=https://example.com/bangumi.xml
-x=https://rss.example.com/twitter/user/asashiki/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY
+x=https://rsshub.asashiki.com/twitter/user/asashiki_/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=YOUR_ACCESS_KEY
 ```
+
+如果需要为不同 RSS 源设置不同检查间隔或提示字，请使用 JSON 格式。`interval_minutes` 表示该 RSS 源至少间隔多少分钟才会被请求一次；GitHub Actions 本身仍可保持较高频率运行。
 
 ## GitHub Variables
 
@@ -53,10 +58,11 @@ x=https://rss.example.com/twitter/user/asashiki/excludeReplies=1&readable=1&addL
 | `SEND_IMAGES` | `0` | 设为 `1` 时发送 RSS 条目中的图片 |
 | `MAX_IMAGES_PER_POST` | `4` | 每条最多发送几张图 |
 | `MAX_PUSH_PER_RUN` | `15` | 单次 workflow 最多推送几条 |
+| `MESSAGE_PREFIX` | `主人` | 默认消息提示字；也可以在 `RSS_URLS` 的单个源里用 `prefix` 覆盖 |
 
 ## 自建 RSSHub 推送 X/Twitter
 
-RSSHub 的 Twitter 路由需要自建实例并配置 X 登录账号。建议使用非重要小号。
+RSSHub 的 Twitter 路由需要自建实例并配置 X 登录态。建议使用非重要小号。
 
 1. 在 VPS 上准备目录：
 
@@ -75,8 +81,10 @@ cp rsshub.env.example .env
 
 ```env
 ACCESS_KEY=一串长随机字符串
-TWITTER_USERNAME=你的X小号登录名
-TWITTER_PASSWORD=你的X小号密码
+TWITTER_AUTH_TOKEN=浏览器Cookie里的auth_token
+# 可选。当前 Twitter 路由不能只靠用户名/密码工作。
+# TWITTER_USERNAME=你的X小号登录名
+# TWITTER_PASSWORD=你的X小号密码
 # TWITTER_AUTHENTICATION_SECRET=如果开了2FA则填TOTP secret
 ```
 
@@ -89,7 +97,7 @@ docker compose -f rsshub.compose.yml up -d
 5. 本机测试：
 
 ```bash
-curl "http://127.0.0.1:1200/twitter/user/你的用户名/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=ACCESS_KEY"
+curl "http://127.0.0.1:1200/twitter/user/asashiki_/excludeReplies=1&readable=1&addLinkForPics=1&showTimestampInDescription=1&heightOfPics=180?key=ACCESS_KEY"
 ```
 
 如果 GitHub Actions 要访问这个 RSSHub，需要用 Caddy 或 Nginx 反代到 HTTPS 域名，再把完整 RSS 地址填入 `RSS_URLS`。
